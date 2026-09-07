@@ -24,7 +24,7 @@ This project is shared by two Codex workers and humans. Before editing, claim th
 
 | Owner | Task | Files / Folders | Status | Started | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Codex A | Windows EXE packaging, session menu, and camera fix | `README.md`, `artifacts/`, `src/FunnyGame.Client/`, `src/FunnyGame.Server/Program.cs` | done | 2026-09-07 | Final executable and multiplayer position fix verified; files are safe to claim. |
+| Codex A | Reconnectable client socket | `artifacts/FunnyGame-win-x64/FunnyGame.exe`, `src/FunnyGame.Client/GameForm.cs` | done | 2026-09-07 | Reconnect lifecycle rebuilt and packaged; files are safe to claim. |
 
 ## Coordination Log
 
@@ -36,6 +36,8 @@ This project is shared by two Codex workers and humans. Before editing, claim th
 | 2026-09-07 | Codex A | Completed and verified the start menu, spawn/collision correction, and self-contained FunnyGame.exe package. |
 | 2026-09-07 | Codex A | Reopened the claim after play-testing exposed an incorrect camera matrix layout. |
 | 2026-09-07 | Codex A | Fixed Vector3 network serialization, preventing all players and entities from collapsing to the origin. |
+| 2026-09-07 | Codex A | Reopened the client claim after a disposed WebSocket surfaced during connection. |
+| 2026-09-07 | Codex A | Replaced the single-use socket with fresh per-connection WebSockets and cancellation-safe cleanup. |
 
 ## Handoff Template
 

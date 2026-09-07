@@ -491,15 +491,18 @@ sealed class NetworkClient : IDisposable
     {
         IncludeFields = true,
     };
-    private readonly ClientWebSocket _socket = new();
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly object _snapshotLock = new();
+    private ClientWebSocket? _socket;
+    private CancellationTokenSource? _connectionCancellation;
     private WorldSnapshot? _previousSnapshot;
     private WorldSnapshot? _currentSnapshot;
     private long _snapshotReceivedAt;
+    private bool _disposed;
 
     public Guid PlayerId { get; private set; }
-    public bool IsConnected => _socket.State == WebSocketState.Open;
+    public bool IsConnected => Volatile.Read(ref _socket)?.State == WebSocketState.Open;
     public IReadOnlyList<GameInfo> Games { get; private set; } = [];
     public WorldSnapshot? CurrentSnapshot
     {
@@ -514,14 +517,52 @@ sealed class NetworkClient : IDisposable
 
     public async Task ConnectAsync(Uri uri, string name, string password)
     {
-        await _socket.ConnectAsync(uri, CancellationToken.None);
-        _ = Task.Run(ReceiveLoopAsync);
-        await SendAsync(new LoginRequest(name, password));
+        await _connectLock.WaitAsync();
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (IsConnected)
+            {
+                return;
+            }
+
+            DisposeConnection();
+            var socket = new ClientWebSocket();
+            var cancellation = new CancellationTokenSource();
+            try
+            {
+                await socket.ConnectAsync(uri, cancellation.Token);
+            }
+            catch
+            {
+                cancellation.Dispose();
+                socket.Dispose();
+                throw;
+            }
+
+            _socket = socket;
+            _connectionCancellation = cancellation;
+            PlayerId = Guid.Empty;
+            Games = [];
+            lock (_snapshotLock)
+            {
+                _previousSnapshot = null;
+                _currentSnapshot = null;
+            }
+
+            _ = Task.Run(() => ReceiveLoopAsync(socket, cancellation.Token));
+            await SendAsync(new LoginRequest(name, password));
+        }
+        finally
+        {
+            _connectLock.Release();
+        }
     }
 
     public async Task SendAsync(NetMessage message)
     {
-        if (!IsConnected)
+        var socket = Volatile.Read(ref _socket);
+        if (socket?.State != WebSocketState.Open)
         {
             return;
         }
@@ -531,10 +572,16 @@ sealed class NetworkClient : IDisposable
         await _sendLock.WaitAsync();
         try
         {
-            if (IsConnected)
+            if (socket.State == WebSocketState.Open)
             {
-                await _socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+                await socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
             }
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (WebSocketException)
+        {
         }
         finally
         {
@@ -573,41 +620,60 @@ sealed class NetworkClient : IDisposable
         }
     }
 
-    private async Task ReceiveLoopAsync()
+    private async Task ReceiveLoopAsync(ClientWebSocket socket, CancellationToken cancellationToken)
     {
         var buffer = new byte[8192];
-        while (_socket.State == WebSocketState.Open)
+        try
         {
-            using var ms = new MemoryStream();
-            WebSocketReceiveResult result;
-            do
+            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
-                result = await _socket.ReceiveAsync(buffer, CancellationToken.None);
-                if (result.MessageType == WebSocketMessageType.Close)
+                using var ms = new MemoryStream();
+                WebSocketReceiveResult result;
+                do
                 {
-                    return;
-                }
-
-                ms.Write(buffer, 0, result.Count);
-            } while (!result.EndOfMessage);
-
-            var json = Encoding.UTF8.GetString(ms.ToArray());
-            switch (JsonSerializer.Deserialize<NetMessage>(json, JsonOptions))
-            {
-                case ServerWelcome welcome:
-                    PlayerId = welcome.PlayerId;
-                    break;
-                case GameListMessage list:
-                    Games = list.Games;
-                    break;
-                case WorldSnapshot snapshot:
-                    lock (_snapshotLock)
+                    result = await socket.ReceiveAsync(buffer, cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        _previousSnapshot = _currentSnapshot;
-                        _currentSnapshot = snapshot;
-                        _snapshotReceivedAt = Stopwatch.GetTimestamp();
+                        return;
                     }
-                    break;
+
+                    ms.Write(buffer, 0, result.Count);
+                } while (!result.EndOfMessage);
+
+                var json = Encoding.UTF8.GetString(ms.ToArray());
+                switch (JsonSerializer.Deserialize<NetMessage>(json, JsonOptions))
+                {
+                    case ServerWelcome welcome:
+                        PlayerId = welcome.PlayerId;
+                        break;
+                    case GameListMessage list:
+                        Games = list.Games;
+                        break;
+                    case WorldSnapshot snapshot:
+                        lock (_snapshotLock)
+                        {
+                            _previousSnapshot = _currentSnapshot;
+                            _currentSnapshot = snapshot;
+                            _snapshotReceivedAt = Stopwatch.GetTimestamp();
+                        }
+                        break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (WebSocketException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _socket, null, socket), socket))
+            {
+                socket.Dispose();
             }
         }
     }
@@ -620,7 +686,22 @@ sealed class NetworkClient : IDisposable
 
     public void Dispose()
     {
-        _sendLock.Dispose();
-        _socket.Dispose();
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        DisposeConnection();
+    }
+
+    private void DisposeConnection()
+    {
+        var cancellation = Interlocked.Exchange(ref _connectionCancellation, null);
+        var socket = Interlocked.Exchange(ref _socket, null);
+        cancellation?.Cancel();
+        socket?.Abort();
+        socket?.Dispose();
+        cancellation?.Dispose();
     }
 }
