@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunnyGame.Shared", "src\FunnyGame.Shared\FunnyGame.Shared.csproj", "{B695D527-74A1-4931-9AB3-300C25C0309A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunnyGame.Server", "src\FunnyGame.Server\FunnyGame.Server.csproj", "{90C90C77-F42F-4286-A602-2AC236707FF5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunnyGame.Client", "src\FunnyGame.Client\FunnyGame.Client.csproj", "{2BA81B14-0CD8-4D54-B47E-F90994C89913}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B695D527-74A1-4931-9AB3-300C25C0309A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B695D527-74A1-4931-9AB3-300C25C0309A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B695D527-74A1-4931-9AB3-300C25C0309A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B695D527-74A1-4931-9AB3-300C25C0309A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90C90C77-F42F-4286-A602-2AC236707FF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90C90C77-F42F-4286-A602-2AC236707FF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90C90C77-F42F-4286-A602-2AC236707FF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90C90C77-F42F-4286-A602-2AC236707FF5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2BA81B14-0CD8-4D54-B47E-F90994C89913}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2BA81B14-0CD8-4D54-B47E-F90994C89913}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2BA81B14-0CD8-4D54-B47E-F90994C89913}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2BA81B14-0CD8-4D54-B47E-F90994C89913}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
