@@ -24,13 +24,14 @@ This project is shared by two Codex workers and humans. Before editing, claim th
 
 | Owner | Task | Files / Folders | Status | Started | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Codex A | Bootstrap C# DX12 multiplayer prototype | `FunnyGame.sln`, `README.md`, `src/FunnyGame.Shared/`, `src/FunnyGame.Server/`, `src/FunnyGame.Client/` | editing | 2026-09-07 | Initial scaffold, build, and verification. |
+| Codex A | DX12 FPS room and central multiplayer relay | `README.md`, `Dockerfile.server`, `render.yaml`, `src/FunnyGame.Shared/`, `src/FunnyGame.Server/`, `src/FunnyGame.Client/` | done | 2026-09-07 | Built and verified; files are safe for the next worker to claim. |
 
 ## Coordination Log
 
 | Time | Owner | Note |
 | --- | --- | --- |
 | 2026-09-07 | Codex A | Created coordination file so parallel workers can claim files before editing. |
+| 2026-09-07 | Codex A | Completed the playable DX12 room, FPS controls, four-player synchronization, room invites, and relay deployment files. |
 
 ## Handoff Template
 

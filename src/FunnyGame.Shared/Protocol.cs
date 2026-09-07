@@ -6,6 +6,7 @@ namespace FunnyGame.Shared;
 public static class Protocol
 {
     public const int TickRate = 30;
+    public const int MaxPlayers = 4;
     public const float PlayerRadius = 0.35f;
     public const float PlayerHeight = 1.8f;
 }

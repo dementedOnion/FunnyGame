@@ -6,7 +6,8 @@ using System.Text.Json;
 using FunnyGame.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls(args.FirstOrDefault(a => a.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) ?? "http://0.0.0.0:5077");
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5077";
+builder.WebHost.UseUrls(args.FirstOrDefault(a => a.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) ?? $"http://0.0.0.0:{port}");
 
 var app = builder.Build();
 app.UseWebSockets();
@@ -15,6 +16,7 @@ var server = new GameServer();
 server.Start();
 
 app.MapGet("/", () => Results.Text("FunnyGame server is running. WebSocket endpoint: /ws", "text/plain"));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 app.MapGet("/games", () => server.ListGames());
 app.Map("/ws", async context =>
 {
@@ -40,7 +42,7 @@ sealed class GameServer
 
     public GameServer()
     {
-        _rooms["lobby"] = new GameRoom("lobby", "Public Lobby", 16);
+        _rooms["lobby"] = new GameRoom("lobby", "Public Lobby", Protocol.MaxPlayers);
     }
 
     public void Start()
@@ -70,7 +72,7 @@ sealed class GameServer
                         break;
                     case HostGameRequest host:
                         var id = Slug(host.GameName);
-                        _rooms.TryAdd(id, new GameRoom(id, host.GameName, Math.Clamp(host.MaxPlayers, 1, 32)));
+                        _rooms.TryAdd(id, new GameRoom(id, host.GameName, Math.Clamp(host.MaxPlayers, 1, Protocol.MaxPlayers)));
                         JoinRoom(peer, id);
                         await BroadcastGameListsAsync(requestAborted);
                         break;
@@ -303,7 +305,7 @@ sealed class GameRoom
                 var input = peer.LastInput;
                 var yaw = input.Yaw;
                 var forward = new Vector3(MathF.Sin(yaw), 0, MathF.Cos(yaw));
-                var right = new Vector3(forward.Z, 0, -forward.X);
+                var right = new Vector3(-forward.Z, 0, forward.X);
                 var wish = right * input.MoveX + forward * input.MoveZ;
                 if (wish.LengthSquared() > 1)
                 {
