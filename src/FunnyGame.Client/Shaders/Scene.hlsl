@@ -1,6 +1,6 @@
 cbuffer Camera : register(b0)
 {
-    row_major float4x4 ViewProjection;
+    float4x4 ViewProjection;
 };
 
 struct VertexInput

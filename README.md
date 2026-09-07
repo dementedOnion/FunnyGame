@@ -16,6 +16,14 @@ Start the DirectX 12 client:
 dotnet run --project .\src\FunnyGame.Client
 ```
 
+Publish the self-contained Windows executable:
+
+```powershell
+dotnet publish .\src\FunnyGame.Client -c Release -r win-x64 -o .\artifacts\FunnyGame-win-x64
+```
+
+The packaged game is `artifacts\FunnyGame-win-x64\FunnyGame.exe`. It includes the .NET runtime and native DirectX dependencies, so friends can launch it without installing the SDK. Connection controls are kept in the start menu; press `Escape` during play to return to it.
+
 For internet play, deploy `Dockerfile.server` as one permanent web service. The included `render.yaml` creates a TLS-enabled WebSocket endpoint on Render. Set `Server` to `wss://YOUR-SERVICE.onrender.com/ws`; `Host Game` creates a visible four-player room there and copies a single-line invite containing the endpoint and room code. Friends paste the invite into `Server / Invite` and click `Join Game`.
 
 The free Render plan sleeps only while idle; incoming WebSocket messages keep an active game awake. Choose an always-on paid instance before treating it as production infrastructure.

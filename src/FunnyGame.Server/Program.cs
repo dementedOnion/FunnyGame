@@ -34,7 +34,10 @@ await app.RunAsync();
 
 sealed class GameServer
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        IncludeFields = true,
+    };
     private readonly ConcurrentDictionary<Guid, ClientPeer> _clients = new();
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
     private readonly ConcurrentDictionary<string, string> _accounts = new(StringComparer.OrdinalIgnoreCase);
@@ -192,7 +195,10 @@ sealed class GameServer
 
 sealed class ClientPeer
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        IncludeFields = true,
+    };
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     public ClientPeer(WebSocket socket)
@@ -264,7 +270,7 @@ sealed class GameRoom
         lock (_players)
         {
             var offset = _players.Count * 1.25f;
-            peer.State = new PlayerState(peer.PlayerId, peer.Name, new(offset, Protocol.PlayerHeight, 0), new(), 0);
+            peer.State = new PlayerState(peer.PlayerId, peer.Name, new(offset, Protocol.PlayerHeight, -4), new(), 0);
             _players[peer.PlayerId] = peer;
         }
     }
@@ -321,7 +327,7 @@ sealed class GameRoom
                 }
 
                 velocity.Y -= 18f * dt;
-                var position = peer.State.Position + velocity * dt;
+                var position = ConstrainToRoom(peer.State.Position + velocity * dt);
                 if (position.Y < Protocol.PlayerHeight)
                 {
                     position.Y = Protocol.PlayerHeight;
@@ -333,5 +339,39 @@ sealed class GameRoom
 
             return new WorldSnapshot(Id, ++_tick, _players.Count + _entities.Count, _players.Values.Select(p => p.State).ToArray(), _entities.ToArray());
         }
+    }
+
+    private Vector3 ConstrainToRoom(Vector3 position)
+    {
+        position.X = Math.Clamp(position.X, -9.3f, 9.3f);
+        position.Z = MathF.Min(position.Z, 9.3f);
+
+        foreach (var entity in _entities)
+        {
+            var obstacleRadius = entity.Kind switch
+            {
+                "Light" => 0.35f,
+                "Button" => 0.65f,
+                "Crate" => 0.72f,
+                _ => 0f,
+            };
+            if (obstacleRadius == 0)
+            {
+                continue;
+            }
+
+            var delta = new Vector2(position.X - entity.Position.X, position.Z - entity.Position.Z);
+            var minimumDistance = Protocol.PlayerRadius + obstacleRadius;
+            if (delta.LengthSquared() >= minimumDistance * minimumDistance)
+            {
+                continue;
+            }
+
+            var direction = delta.LengthSquared() < 0.0001f ? new Vector2(0, -1) : Vector2.Normalize(delta);
+            position.X = entity.Position.X + direction.X * minimumDistance;
+            position.Z = entity.Position.Z + direction.Y * minimumDistance;
+        }
+
+        return position;
     }
 }

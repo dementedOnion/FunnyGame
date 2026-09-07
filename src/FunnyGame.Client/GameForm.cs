@@ -18,6 +18,8 @@ public sealed class GameForm : Form
     private readonly Button _hostButton = new() { Text = "Host Game", Width = 92, Height = 28 };
     private readonly Button _joinButton = new() { Text = "Join Game", Width = 92, Height = 28 };
     private readonly Button _inviteButton = new() { Text = "Copy Invite", Width = 92, Height = 28, Enabled = false };
+    private readonly Button _resumeButton = new() { Text = "Resume", Width = 190, Height = 34, Visible = false };
+    private readonly Button _exitButton = new() { Text = "Exit", Width = 190, Height = 34 };
     private readonly TextBox _serverBox = new()
     {
         Text = Environment.GetEnvironmentVariable("FUNNYGAME_SERVER_URL") ?? "ws://127.0.0.1:5077/ws",
@@ -27,6 +29,7 @@ public sealed class GameForm : Form
     private readonly TextBox _passwordBox = new() { Text = "friends", Width = 80, UseSystemPasswordChar = true };
     private readonly ComboBox _gameBox = new() { Text = "my-game", Width = 130, DropDownStyle = ComboBoxStyle.DropDown };
     private readonly Panel _viewport = new() { Dock = DockStyle.Fill, BackColor = DrawingColor.Black, TabStop = true };
+    private readonly Panel _menuPanel = new() { Dock = DockStyle.Fill, BackColor = DrawingColor.FromArgb(17, 21, 26) };
     private Dx12Renderer? _renderer;
     private float _yaw;
     private float _pitch;
@@ -46,26 +49,21 @@ public sealed class GameForm : Form
         DoubleBuffered = false;
         KeyPreview = true;
 
-        var top = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 36,
-            BackColor = DrawingColor.FromArgb(28, 31, 36),
-            Padding = new Padding(6),
-        };
-        top.Controls.AddRange([new Label { Text = "Server / Invite", ForeColor = DrawingColor.White, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, _serverBox, new Label { Text = "Name", ForeColor = DrawingColor.White, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, _nameBox, new Label { Text = "Password", ForeColor = DrawingColor.White, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, _passwordBox, new Label { Text = "Game", ForeColor = DrawingColor.White, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, _gameBox, _hostButton, _joinButton, _inviteButton]);
         Controls.Add(_viewport);
-        Controls.Add(top);
-        top.BringToFront();
+        Controls.Add(_menuPanel);
+        BuildMenu();
+        _menuPanel.BringToFront();
 
         _hostButton.Click += async (_, _) => await HostAsync();
         _joinButton.Click += async (_, _) => await JoinAsync();
         _inviteButton.Click += (_, _) => Clipboard.SetText(_invite);
+        _resumeButton.Click += (_, _) => EnterGame();
+        _exitButton.Click += (_, _) => Close();
         KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Escape)
             {
-                ReleaseMouse();
+                OpenMenu();
                 return;
             }
 
@@ -85,6 +83,93 @@ public sealed class GameForm : Form
 
         _timer.Interval = 16;
         _timer.Tick += async (_, _) => await FrameAsync();
+    }
+
+    private void BuildMenu()
+    {
+        var center = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 3,
+        };
+        center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        center.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 440));
+        center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        center.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        center.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        center.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+        var menu = new TableLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            Padding = new Padding(24),
+        };
+        menu.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
+        menu.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        var title = new Label
+        {
+            Text = "FunnyGame",
+            AutoSize = true,
+            Font = new Font(Font.FontFamily, 28, FontStyle.Bold),
+            ForeColor = DrawingColor.White,
+            Margin = new Padding(0, 0, 0, 22),
+        };
+        menu.Controls.Add(title, 0, 0);
+        menu.SetColumnSpan(title, 2);
+
+        AddMenuField(menu, "Server / Invite", _serverBox, 1);
+        AddMenuField(menu, "Name", _nameBox, 2);
+        AddMenuField(menu, "Password", _passwordBox, 3);
+        AddMenuField(menu, "Game", _gameBox, 4);
+
+        _serverBox.Dock = DockStyle.Fill;
+        _nameBox.Dock = DockStyle.Fill;
+        _passwordBox.Dock = DockStyle.Fill;
+        _gameBox.Dock = DockStyle.Fill;
+
+        var sessionButtons = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(0, 14, 0, 4),
+        };
+        sessionButtons.Controls.AddRange([_hostButton, _joinButton, _inviteButton]);
+        menu.Controls.Add(sessionButtons, 0, 5);
+        menu.SetColumnSpan(sessionButtons, 2);
+
+        var appButtons = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(0, 10, 0, 0),
+        };
+        appButtons.Controls.AddRange([_resumeButton, _exitButton]);
+        menu.Controls.Add(appButtons, 0, 6);
+        menu.SetColumnSpan(appButtons, 2);
+
+        center.Controls.Add(menu, 1, 1);
+        _menuPanel.Controls.Add(center);
+    }
+
+    private static void AddMenuField(TableLayoutPanel menu, string text, Control control, int row)
+    {
+        var label = new Label
+        {
+            Text = text,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            ForeColor = DrawingColor.FromArgb(205, 211, 218),
+            Margin = new Padding(0, 8, 10, 8),
+        };
+        control.Margin = new Padding(0, 6, 0, 6);
+        menu.Controls.Add(label, 0, row);
+        menu.Controls.Add(control, 1, row);
     }
 
     protected override void OnShown(EventArgs e)
@@ -115,7 +200,7 @@ public sealed class GameForm : Form
                 "Game online",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
-            CaptureMouse();
+            EnterGame(resetView: true);
         }
         catch (Exception ex)
         {
@@ -145,7 +230,7 @@ public sealed class GameForm : Form
                 ? selected.Info.GameId
                 : _gameBox.Text.Trim();
             await _network.SendAsync(new JoinGameRequest(string.IsNullOrWhiteSpace(gameId) ? "lobby" : gameId));
-            CaptureMouse();
+            EnterGame(resetView: true);
         }
         catch (Exception ex)
         {
@@ -184,9 +269,10 @@ public sealed class GameForm : Form
             _clock.Restart();
             RefreshGameList();
 
-            var moveX = (_keys.Contains(Keys.D) ? 1 : 0) - (_keys.Contains(Keys.A) ? 1 : 0);
-            var moveZ = (_keys.Contains(Keys.W) ? 1 : 0) - (_keys.Contains(Keys.S) ? 1 : 0);
-            var jump = _keys.Contains(Keys.Space);
+            var menuOpen = _menuPanel.Visible;
+            var moveX = menuOpen ? 0 : (_keys.Contains(Keys.D) ? 1 : 0) - (_keys.Contains(Keys.A) ? 1 : 0);
+            var moveZ = menuOpen ? 0 : (_keys.Contains(Keys.W) ? 1 : 0) - (_keys.Contains(Keys.S) ? 1 : 0);
+            var jump = !menuOpen && _keys.Contains(Keys.Space);
 
             if (_network.IsConnected)
             {
@@ -197,7 +283,7 @@ public sealed class GameForm : Form
                 LocalMove(moveX, moveZ, jump, dt);
             }
 
-            var interactDown = _keys.Contains(Keys.E);
+            var interactDown = !menuOpen && _keys.Contains(Keys.E);
             if (interactDown && !_interactWasDown)
             {
                 var target = (_network.CurrentSnapshot?.Entities ?? Dx12Renderer.LocalEntities)
@@ -238,6 +324,7 @@ public sealed class GameForm : Form
         }
 
         _localPosition += wish * 4.8f * dt;
+        _localPosition = ConstrainToRoom(_localPosition, Dx12Renderer.LocalEntities);
         if (_localPosition.Y <= Protocol.PlayerHeight + 0.01f && jump)
         {
             _verticalVelocity = 5.5f;
@@ -250,6 +337,40 @@ public sealed class GameForm : Form
             _localPosition.Y = Protocol.PlayerHeight;
             _verticalVelocity = 0;
         }
+    }
+
+    private static Vector3 ConstrainToRoom(Vector3 position, IReadOnlyList<EntityState> entities)
+    {
+        position.X = Math.Clamp(position.X, -9.3f, 9.3f);
+        position.Z = MathF.Min(position.Z, 9.3f);
+
+        foreach (var entity in entities)
+        {
+            var obstacleRadius = entity.Kind switch
+            {
+                "Light" => 0.35f,
+                "Button" => 0.65f,
+                "Crate" => 0.72f,
+                _ => 0f,
+            };
+            if (obstacleRadius == 0)
+            {
+                continue;
+            }
+
+            var delta = new Vector2(position.X - entity.Position.X, position.Z - entity.Position.Z);
+            var minimumDistance = Protocol.PlayerRadius + obstacleRadius;
+            if (delta.LengthSquared() >= minimumDistance * minimumDistance)
+            {
+                continue;
+            }
+
+            var direction = delta.LengthSquared() < 0.0001f ? new Vector2(0, -1) : Vector2.Normalize(delta);
+            position.X = entity.Position.X + direction.X * minimumDistance;
+            position.Z = entity.Position.Z + direction.Y * minimumDistance;
+        }
+
+        return position;
     }
 
     private void RefreshGameList()
@@ -278,13 +399,34 @@ public sealed class GameForm : Form
             return;
         }
 
-        _mouseCaptured = true;
         Cursor.Clip = _viewport.RectangleToScreen(_viewport.ClientRectangle);
+        CenterCursor();
+        _mouseCaptured = true;
         for (var i = 0; i < 16 && NativeMethods.ShowCursor(false) >= 0; i++)
         {
         }
-        CenterCursor();
         _viewport.Focus();
+    }
+
+    private void EnterGame(bool resetView = false)
+    {
+        if (resetView)
+        {
+            _yaw = 0;
+            _pitch = 0;
+        }
+
+        _menuPanel.Hide();
+        _resumeButton.Visible = true;
+        CaptureMouse();
+    }
+
+    private void OpenMenu()
+    {
+        ReleaseMouse();
+        _keys.Clear();
+        _menuPanel.Show();
+        _menuPanel.BringToFront();
     }
 
     private void ReleaseMouse()
@@ -345,7 +487,10 @@ public sealed class GameForm : Form
 
 sealed class NetworkClient : IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        IncludeFields = true,
+    };
     private readonly ClientWebSocket _socket = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly object _snapshotLock = new();

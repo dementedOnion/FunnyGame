@@ -21,7 +21,7 @@ sealed unsafe class Dx12Renderer : IDisposable
 
     public static IReadOnlyList<EntityState> LocalEntities { get; } =
     [
-        new(Guid.Parse("10000000-0000-0000-0000-000000000001"), "Light", new(0, 4, 2), false, 0),
+        new(Guid.Parse("10000000-0000-0000-0000-000000000001"), "Light", new(0, 4, -2), false, 0),
         new(Guid.Parse("10000000-0000-0000-0000-000000000002"), "Button", new(2, 0.45f, 2), true, 0),
         new(Guid.Parse("10000000-0000-0000-0000-000000000003"), "Crate", new(-2, 0.5f, 3), true, 0),
         new(Guid.Parse("10000000-0000-0000-0000-000000000004"), "SpawnMarker", new(0, 0.03f, 0), false, 0)
@@ -161,14 +161,14 @@ sealed unsafe class Dx12Renderer : IDisposable
             return;
         }
 
-        BuildScene(snapshot, localPlayerId);
+        BuildScene(cameraPosition, snapshot, localPlayerId);
         var forward = Vector3.Normalize(new Vector3(
             MathF.Sin(yaw) * MathF.Cos(pitch),
             -MathF.Sin(pitch),
             MathF.Cos(yaw) * MathF.Cos(pitch)));
         var view = Matrix4x4.CreateLookAt(cameraPosition, cameraPosition + forward, Vector3.UnitY);
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 3f, (float)_width / _height, 0.05f, 150f);
-        var viewProjection = Matrix4x4.Multiply(view, projection);
+        var viewProjection = Matrix4x4.Transpose(Matrix4x4.Multiply(view, projection));
         Unsafe.Copy(_constantData, ref viewProjection);
 
         var vertexSpan = CollectionsMarshal.AsSpan(_vertices);
@@ -207,7 +207,7 @@ sealed unsafe class Dx12Renderer : IDisposable
         _frameIndex = (int)_swapChain.CurrentBackBufferIndex;
     }
 
-    private void BuildScene(WorldSnapshot? snapshot, Guid localPlayerId)
+    private void BuildScene(Vector3 cameraPosition, WorldSnapshot? snapshot, Guid localPlayerId)
     {
         _vertices.Clear();
         AddGround();
@@ -246,7 +246,9 @@ sealed unsafe class Dx12Renderer : IDisposable
             return;
         }
 
-        foreach (var player in snapshot.Players.Where(player => player.PlayerId != localPlayerId))
+        foreach (var player in snapshot.Players.Where(player =>
+                     player.PlayerId != localPlayerId &&
+                     Vector3.DistanceSquared(player.Position, cameraPosition) > 0.25f))
         {
             var bodyCenter = player.Position - new Vector3(0, Protocol.PlayerHeight / 2f, 0);
             AddBox(bodyCenter, new Vector3(0.65f, Protocol.PlayerHeight, 0.65f), new Vector4(0.9f, 0.18f, 0.15f, 1));
